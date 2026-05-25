@@ -695,8 +695,24 @@ function renderTasks() {
         taskList.className = 'task-list';
 
         projectTasks.sort((a, b) => {
+            // Follow-up tasks always float to the top
             if (a.followUp && !b.followUp) return -1;
             if (!a.followUp && b.followUp) return 1;
+
+            // Sort by deadline (earliest first); tasks with no deadline go last
+            const aDate = a.deadline ? new Date(a.deadline) : null;
+            const bDate = b.deadline ? new Date(b.deadline) : null;
+            if (aDate && bDate) return aDate - bDate;
+            if (aDate && !bDate) return -1;
+            if (!aDate && bDate) return 1;
+
+            // Fall back to start date if deadlines equal or both missing
+            const aStart = a.startDate ? new Date(a.startDate) : null;
+            const bStart = b.startDate ? new Date(b.startDate) : null;
+            if (aStart && bStart) return aStart - bStart;
+            if (aStart && !bStart) return -1;
+            if (!aStart && bStart) return 1;
+
             return 0;
         });
 
