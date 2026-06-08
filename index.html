@@ -228,49 +228,20 @@
         .tab-btn.tab-trash.active    { background: #ef4444; border-color: #ef4444; }
         .tab-btn.tab-followup.active { background: #8b5cf6; border-color: #8b5cf6; }
         .tab-btn.tab-excel.active    { background: #10b981; border-color: #10b981; }
-
-        /* ── EXCEL TAB PANEL ── */
-        .excel-panel {
-            background: var(--card-bg); border-radius: 8px;
-            box-shadow: 0 1px 3px rgba(0,0,0,0.08);
-            padding: 0.75rem; margin-bottom: 0.5rem;
-        }
-        .excel-panel-title {
-            font-size: 0.8rem; font-weight: 700; color: #065f46;
-            margin-bottom: 0.6rem;
-        }
-        .excel-filters {
-            display: flex; gap: 0.5rem; align-items: flex-end; flex-wrap: wrap;
-            margin-bottom: 0.75rem;
-        }
-        .excel-filters .form-group { min-width: 140px; }
-        .btn-excel-export {
-            background: #10b981; color: white; border: none;
-            padding: 0.35rem 1rem; font-size: 0.8rem; font-weight: 700;
-            border-radius: 5px; cursor: pointer; height: 30px;
-            white-space: nowrap; transition: background 0.15s;
-        }
-        .btn-excel-export:hover { background: #059669; }
-        .excel-preview-table {
-            width: 100%; border-collapse: collapse;
-            font-size: 0.72rem; margin-top: 0.5rem;
-        }
-        .excel-preview-table th {
-            background: #1e3a5f; color: white; padding: 0.3rem 0.5rem;
-            text-align: left; font-size: 0.65rem; text-transform: uppercase;
-            letter-spacing: 0.04em; border: 1px solid #334155;
-        }
-        .excel-preview-table td {
-            padding: 0.25rem 0.5rem; border: 1px solid var(--border-color);
-            max-width: 260px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
-        }
-        .excel-preview-table tr:nth-child(even) td { background: #f0f4ff; }
-        .excel-preview-table tr:hover td { background: #eff6ff; }
-        .badge-status-pending  { color: #92400e; font-weight: 600; }
-        .badge-status-complete { color: #065f46; font-weight: 600; }
-        .badge-status-followup { color: #5b21b6; font-weight: 600; }
-        .excel-preview-wrap { overflow-x: auto; max-height: 420px; overflow-y: auto; }
-        .excel-count { font-size: 0.7rem; color: var(--text-muted); margin-bottom: 0.4rem; }
+        .excel-panel { background:var(--card-bg);border-radius:8px;box-shadow:0 1px 3px rgba(0,0,0,0.08);padding:0.75rem;margin-bottom:0.5rem; }
+        .excel-panel-title { font-size:0.8rem;font-weight:700;color:#065f46;margin-bottom:0.6rem; }
+        .excel-filters { display:flex;gap:0.5rem;align-items:flex-end;flex-wrap:wrap;margin-bottom:0.6rem; }
+        .excel-filters .form-group { min-width:140px; }
+        .btn-excel-dl { background:#10b981;color:white;border:none;padding:0.35rem 1rem;font-size:0.8rem;font-weight:700;border-radius:5px;cursor:pointer;height:30px;white-space:nowrap;transition:background 0.15s; }
+        .btn-excel-dl:hover { background:#059669; }
+        .xl-count { font-size:0.7rem;color:var(--text-muted);margin-bottom:0.4rem; }
+        .xl-wrap { overflow-x:auto;max-height:440px;overflow-y:auto; }
+        .xl-table { width:100%;border-collapse:collapse;font-size:0.72rem; }
+        .xl-table th { background:#1e3a5f;color:white;padding:0.3rem 0.5rem;text-align:left;font-size:0.65rem;text-transform:uppercase;letter-spacing:0.04em;border:1px solid #334155;position:sticky;top:0; }
+        .xl-table td { padding:0.25rem 0.5rem;border:1px solid var(--border-color);white-space:nowrap; }
+        .xl-table tr:nth-child(even) td { background:#f0f4ff; }
+        .xl-table tr:hover td { background:#eff6ff; }
+        .sp { color:#92400e;font-weight:600; } .sc { color:#065f46;font-weight:600; } .sf { color:#5b21b6;font-weight:600; }
 
         .followup-count, .trash-count {
             display: inline-flex; align-items: center; justify-content: center;
@@ -1074,6 +1045,152 @@ window.switchTab = (tab) => {
     if (tab === 'excel')    renderExcelTab();
 };
 
+/* ── EXCEL TAB ── */
+function xlGetTasks() {
+    const proj   = document.getElementById('xlProj')?.value   || '';
+    const person = document.getElementById('xlPerson')?.value || '';
+    const incA = document.getElementById('xlA')?.checked  ?? true;
+    const incF = document.getElementById('xlF')?.checked  ?? true;
+    const incD = document.getElementById('xlD')?.checked  ?? false;
+    return tasks.filter(t => {
+        if (t._trashed)                      return false;
+        if (proj   && t.project  !== proj)   return false;
+        if (person && t.assignee !== person) return false;
+        const done = t.status === 'complete';
+        const fup  = !!t.followUp;
+        if (done        && !incD) return false;
+        if (!done && fup  && !incF) return false;
+        if (!done && !fup && !incA) return false;
+        return true;
+    });
+}
+
+function renderExcelTab() {
+    document.getElementById('excelContainer').innerHTML = `
+        <div class="excel-panel">
+            <div class="excel-panel-title">📊 Export Tasks to Excel</div>
+            <div class="excel-filters">
+                <div class="form-group">
+                    <label for="xlProj">Filter by Project</label>
+                    <select id="xlProj" onchange="window.xlRefresh()">
+                        <option value="">All Projects</option>
+                        ${[...projects].sort().map(p => `<option value="${p}">${p}</option>`).join('')}
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="xlPerson">Filter by Person</label>
+                    <select id="xlPerson" onchange="window.xlRefresh()">
+                        <option value="">All People</option>
+                        ${[...assignees].sort().map(a => `<option value="${a}">${a}</option>`).join('')}
+                    </select>
+                </div>
+                <div class="form-group" style="display:flex;flex-direction:column;gap:0.3rem;">
+                    <label>Include</label>
+                    <div style="display:flex;gap:0.75rem;align-items:center;height:30px;flex-wrap:wrap;">
+                        <label style="display:flex;align-items:center;gap:4px;text-transform:none;font-size:0.75rem;font-weight:500;color:var(--text-main);"><input type="checkbox" id="xlA" checked onchange="window.xlRefresh()"> Active</label>
+                        <label style="display:flex;align-items:center;gap:4px;text-transform:none;font-size:0.75rem;font-weight:500;color:var(--text-main);"><input type="checkbox" id="xlF" checked onchange="window.xlRefresh()"> Follow-Up</label>
+                        <label style="display:flex;align-items:center;gap:4px;text-transform:none;font-size:0.75rem;font-weight:500;color:var(--text-main);"><input type="checkbox" id="xlD" onchange="window.xlRefresh()"> Completed</label>
+                    </div>
+                </div>
+                <div class="form-group" style="display:flex;align-items:flex-end;">
+                    <button class="btn-excel-dl" onclick="window.xlDownload()">⬇ Download Excel</button>
+                </div>
+            </div>
+            <div class="xl-count" id="xlCount"></div>
+            <div class="xl-wrap">
+                <table class="xl-table">
+                    <thead><tr><th>#</th><th>Task Description</th><th>Project</th><th>Assignee</th><th>Start</th><th>Deadline</th><th>Status</th></tr></thead>
+                    <tbody id="xlBody"></tbody>
+                </table>
+            </div>
+        </div>`;
+    window.xlRefresh();
+}
+
+window.xlRefresh = () => {
+    const rows  = xlGetTasks();
+    const tbody = document.getElementById('xlBody');
+    const count = document.getElementById('xlCount');
+    if (!tbody) return;
+    count.textContent = `${rows.length} task${rows.length !== 1 ? 's' : ''} will be exported`;
+    tbody.innerHTML = rows.map((t, i) => {
+        const done  = t.status === 'complete';
+        const fup   = !!t.followUp;
+        const label = done ? 'Complete' : fup ? 'Follow-Up' : 'Pending';
+        const cls   = done ? 'sc' : fup ? 'sf' : 'sp';
+        return `<tr>
+            <td style="color:#9ca3af;">${i+1}</td>
+            <td style="max-width:280px;white-space:normal;">${t.desc||''}</td>
+            <td style="font-weight:600;color:var(--primary-color)">${(t.project||'').toUpperCase()}</td>
+            <td>${t.assignee||''}</td>
+            <td style="color:#6b7280">${formatDate(t.startDate)||''}</td>
+            <td style="color:#6b7280">${formatDate(t.deadline)||''}</td>
+            <td class="${cls}">${label}</td>
+        </tr>`;
+    }).join('');
+};
+
+window.xlDownload = () => {
+    const rows = xlGetTasks();
+    if (!rows.length) { alert('No tasks match the current filters.'); return; }
+    const XLSX = window.XLSX;
+    if (!XLSX) { alert('Excel library not loaded yet, please try again.'); return; }
+
+    const wb = XLSX.utils.book_new();
+
+    /* Sheet 1 — All Tasks */
+    const s1 = [['#','Task Description','Project','Assignee','Status','Start Date','Deadline','Follow-Up']];
+    rows.forEach((t, i) => {
+        const done = t.status === 'complete';
+        s1.push([i+1, t.desc||'', (t.project||'').toUpperCase(), t.assignee||'',
+            done?'Complete':t.followUp?'Follow-Up':'Pending',
+            formatDate(t.startDate)||'', formatDate(t.deadline)||'', t.followUp?'★':'']);
+    });
+    const ws1 = XLSX.utils.aoa_to_sheet(s1);
+    ws1['!cols'] = [{wch:4},{wch:54},{wch:12},{wch:14},{wch:10},{wch:12},{wch:12},{wch:8}];
+    XLSX.utils.book_append_sheet(wb, ws1, 'All Tasks');
+
+    /* Sheet 2 — By Project */
+    const projs = [...new Set(rows.map(t => t.project))].sort();
+    const s2 = [['Project','Task Description','Assignee','Status','Start Date','Deadline']];
+    projs.forEach(proj => {
+        const pt = rows.filter(t => t.project === proj);
+        s2.push([`${proj.toUpperCase()} — ${pt.length} task${pt.length!==1?'s':''}`, '','','','','']);
+        pt.forEach(t => {
+            const done = t.status === 'complete';
+            s2.push(['', t.desc||'', t.assignee||'',
+                done?'Complete':t.followUp?'Follow-Up':'Pending',
+                formatDate(t.startDate)||'', formatDate(t.deadline)||'']);
+        });
+        s2.push([]);
+    });
+    const ws2 = XLSX.utils.aoa_to_sheet(s2);
+    ws2['!cols'] = [{wch:24},{wch:54},{wch:14},{wch:10},{wch:12},{wch:12}];
+    XLSX.utils.book_append_sheet(wb, ws2, 'By Project');
+
+    /* Sheet 3 — By Assignee */
+    const people = [...new Set(rows.map(t => t.assignee))].sort();
+    const s3 = [['Assignee','Task Description','Project','Status','Start Date','Deadline']];
+    people.forEach(person => {
+        const pt   = rows.filter(t => t.assignee === person);
+        const pend = pt.filter(t => t.status !== 'complete').length;
+        const done = pt.filter(t => t.status === 'complete').length;
+        s3.push([`${person} — ${pt.length} tasks (${pend} pending, ${done} done)`,'','','','','']);
+        pt.forEach(t => {
+            const isDone = t.status === 'complete';
+            s3.push(['', t.desc||'', (t.project||'').toUpperCase(),
+                isDone?'Complete':t.followUp?'Follow-Up':'Pending',
+                formatDate(t.startDate)||'', formatDate(t.deadline)||'']);
+        });
+        s3.push([]);
+    });
+    const ws3 = XLSX.utils.aoa_to_sheet(s3);
+    ws3['!cols'] = [{wch:42},{wch:54},{wch:12},{wch:10},{wch:12},{wch:12}];
+    XLSX.utils.book_append_sheet(wb, ws3, 'By Assignee');
+
+    XLSX.writeFile(wb, `Fabcon_Tasks_${getTodayStr()}.xlsx`);
+};
+
 /* ── FORM SUBMIT ── */
 taskForm.addEventListener('submit', (e) => {
     e.preventDefault();
@@ -1266,168 +1383,8 @@ window.exportTasks = () => {
     a.click();
 };
 
-/* ── EXCEL TAB ── */
-function getExcelFilteredTasks() {
-    const proj   = document.getElementById('excelFilterProject')?.value || '';
-    const person = document.getElementById('excelFilterPerson')?.value  || '';
-    const incActive   = document.getElementById('excelIncActive')?.checked  ?? true;
-    const incFollowUp = document.getElementById('excelIncFollowUp')?.checked ?? true;
-    const incDone     = document.getElementById('excelIncDone')?.checked     ?? false;
-
-    return tasks.filter(t => {
-        if (t._trashed) return false;
-        if (proj   && t.project  !== proj)   return false;
-        if (person && t.assignee !== person) return false;
-        const isDone   = t.status === 'complete';
-        const isFUp    = t.followUp;
-        const isActive = !isDone;
-        if (isDone   && !incDone)     return false;
-        if (isFUp    && !incFollowUp) return false;
-        if (isActive && !isDone && !incActive) return false;
-        return true;
-    });
-}
-
-function renderExcelTab() {
-    const container = document.getElementById('excelContainer');
-
-    container.innerHTML = `
-        <div class="excel-panel">
-            <div class="excel-panel-title">📊 Export Tasks to Excel</div>
-            <div class="excel-filters">
-                <div class="form-group">
-                    <label for="excelFilterProject">Filter by Project</label>
-                    <select id="excelFilterProject" onchange="refreshExcelPreview()">
-                        <option value="">All Projects</option>
-                        ${[...projects].sort().map(p => `<option value="${p}">${p}</option>`).join('')}
-                    </select>
-                </div>
-                <div class="form-group">
-                    <label for="excelFilterPerson">Filter by Person</label>
-                    <select id="excelFilterPerson" onchange="refreshExcelPreview()">
-                        <option value="">All People</option>
-                        ${[...assignees].sort().map(a => `<option value="${a}">${a}</option>`).join('')}
-                    </select>
-                </div>
-                <div class="form-group" style="display:flex;flex-direction:column;gap:0.3rem;justify-content:flex-end;">
-                    <label style="margin-bottom:0.2rem;">Include</label>
-                    <div style="display:flex;gap:0.75rem;align-items:center;height:30px;flex-wrap:wrap;">
-                        <label style="display:flex;align-items:center;gap:4px;text-transform:none;font-weight:500;color:var(--text-main);font-size:0.75rem;">
-                            <input type="checkbox" id="excelIncActive"   checked onchange="refreshExcelPreview()"> Active
-                        </label>
-                        <label style="display:flex;align-items:center;gap:4px;text-transform:none;font-weight:500;color:var(--text-main);font-size:0.75rem;">
-                            <input type="checkbox" id="excelIncFollowUp" checked onchange="refreshExcelPreview()"> Follow-Up
-                        </label>
-                        <label style="display:flex;align-items:center;gap:4px;text-transform:none;font-weight:500;color:var(--text-main);font-size:0.75rem;">
-                            <input type="checkbox" id="excelIncDone"           onchange="refreshExcelPreview()"> Completed
-                        </label>
-                    </div>
-                </div>
-                <div class="form-group" style="justify-content:flex-end;display:flex;align-items:flex-end;">
-                    <button class="btn-excel-export" onclick="window.downloadExcel()">⬇ Download Excel</button>
-                </div>
-            </div>
-            <div class="excel-count" id="excelCount"></div>
-            <div class="excel-preview-wrap">
-                <table class="excel-preview-table" id="excelPreviewTable">
-                    <thead>
-                        <tr>
-                            <th>#</th>
-                            <th>Task Description</th>
-                            <th>Project</th>
-                            <th>Assignee</th>
-                            <th>Start</th>
-                            <th>Deadline</th>
-                            <th>Status</th>
-                        </tr>
-                    </thead>
-                    <tbody id="excelPreviewBody"></tbody>
-                </table>
-            </div>
-        </div>`;
-
-    refreshExcelPreview();
-}
-
-window.refreshExcelPreview = () => {
-    const filtered = getExcelFilteredTasks();
-    document.getElementById('excelCount').textContent = `${filtered.length} task${filtered.length !== 1 ? 's' : ''} will be exported`;
-    const tbody = document.getElementById('excelPreviewBody');
-    if (!tbody) return;
-    tbody.innerHTML = filtered.map((t, i) => {
-        const status = t.status === 'complete' ? 'Complete' : t.followUp ? 'Follow-Up' : 'Pending';
-        const cls    = t.status === 'complete' ? 'badge-status-complete' : t.followUp ? 'badge-status-followup' : 'badge-status-pending';
-        return `<tr>
-            <td style="color:#9ca3af;font-size:0.65rem;">${i+1}</td>
-            <td style="max-width:260px;">${t.desc || ''}</td>
-            <td style="font-weight:600;color:var(--primary-color)">${(t.project||'').toUpperCase()}</td>
-            <td>${t.assignee || ''}</td>
-            <td style="color:#6b7280">${formatDate(t.startDate)||''}</td>
-            <td style="color:#6b7280">${formatDate(t.deadline)||''}</td>
-            <td class="${cls}">${status}</td>
-        </tr>`;
-    }).join('');
-};
-
-window.downloadExcel = () => {
-    const filtered = getExcelFilteredTasks();
-    if (!filtered.length) { alert('No tasks to export with current filters.'); return; }
-
-    const wb = XLSX.utils.book_new();
-
-    // ── Sheet 1: All (filtered) tasks ──────────────────────────────────────
-    const allRows = [['#','Task Description','Project','Assignee','Status','Start Date','Deadline','Follow-Up']];
-    filtered.forEach((t, i) => {
-        const status = t.status === 'complete' ? 'Complete' : 'Pending';
-        allRows.push([i+1, t.desc||'', (t.project||'').toUpperCase(), t.assignee||'',
-            status, formatDate(t.startDate)||'', formatDate(t.deadline)||'', t.followUp ? '★' : '']);
-    });
-    const ws1 = XLSX.utils.aoa_to_sheet(allRows);
-    ws1['!cols'] = [{wch:4},{wch:52},{wch:12},{wch:14},{wch:10},{wch:12},{wch:12},{wch:8}];
-    ws1['!freeze'] = {xSplit:0, ySplit:1};
-    XLSX.utils.book_append_sheet(wb, ws1, 'All Tasks');
-
-    // ── Sheet 2: By Project ────────────────────────────────────────────────
-    const projGroups = [...new Set(filtered.map(t => t.project))].sort();
-    const projRows = [['Project','Task Description','Assignee','Status','Start Date','Deadline']];
-    projGroups.forEach(proj => {
-        const pt = filtered.filter(t => t.project === proj);
-        projRows.push([proj.toUpperCase() + ` (${pt.length} tasks)`, '', '', '', '', '']);
-        pt.forEach(t => {
-            const status = t.status === 'complete' ? 'Complete' : t.followUp ? 'Follow-Up' : 'Pending';
-            projRows.push(['', t.desc||'', t.assignee||'', status,
-                formatDate(t.startDate)||'', formatDate(t.deadline)||'']);
-        });
-        projRows.push([]);
-    });
-    const ws2 = XLSX.utils.aoa_to_sheet(projRows);
-    ws2['!cols'] = [{wch:22},{wch:52},{wch:14},{wch:10},{wch:12},{wch:12}];
-    XLSX.utils.book_append_sheet(wb, ws2, 'By Project');
-
-    // ── Sheet 3: By Assignee ───────────────────────────────────────────────
-    const personGroups = [...new Set(filtered.map(t => t.assignee))].sort();
-    const personRows = [['Assignee','Task Description','Project','Status','Start Date','Deadline']];
-    personGroups.forEach(person => {
-        const pt = filtered.filter(t => t.assignee === person);
-        const pending  = pt.filter(t => t.status !== 'complete').length;
-        const complete = pt.filter(t => t.status === 'complete').length;
-        personRows.push([`${person} — ${pt.length} tasks (${pending} pending, ${complete} done)`, '', '', '', '', '']);
-        pt.forEach(t => {
-            const status = t.status === 'complete' ? 'Complete' : t.followUp ? 'Follow-Up' : 'Pending';
-            personRows.push(['', t.desc||'', (t.project||'').toUpperCase(), status,
-                formatDate(t.startDate)||'', formatDate(t.deadline)||'']);
-        });
-        personRows.push([]);
-    });
-    const ws3 = XLSX.utils.aoa_to_sheet(personRows);
-    ws3['!cols'] = [{wch:40},{wch:52},{wch:12},{wch:10},{wch:12},{wch:12}];
-    XLSX.utils.book_append_sheet(wb, ws3, 'By Assignee');
-
-    const today = formatDate(new Date().toISOString().split('T')[0]);
-    XLSX.writeFile(wb, `Fabcon_Tasks_${today}.xlsx`);
-};
-
-
+/* ── IMPORT ── */
+window.importTasks = (event) => {
     const file = event.target.files[0];
     if (!file) return;
     const reader = new FileReader();
